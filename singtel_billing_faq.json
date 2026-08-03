@@ -1,0 +1,109 @@
+{
+  "source_url": "https://www.singtel.com/personal/support/account-billing",
+  "scraped_at": "2026-08-03T12:51:16.586Z",
+  "sections": [
+    {
+      "section": "Account",
+      "qa": [
+        {
+          "question": "When can I recontract my plan?",
+          "answer": "Get started: https://www.singtel.com/personal/support/recontract-eligibility/msta"
+        },
+        {
+          "question": "Transfer ownership of Singtel service",
+          "answer": "Get started: https://www.singtel.com/personal/support/account/transfer-ownership-singtel-service"
+        },
+        {
+          "question": "Close or transfer Singtel account after death",
+          "answer": "Get started: https://www.singtel.com/personal/support/account/close-transfer-singtel-account-after-death1"
+        },
+        {
+          "question": "How to suspend or resume my services?",
+          "answer": "Get started: https://www.singtel.com/personal/support/account/suspend-or-resume-services"
+        },
+        {
+          "question": "Service suspended due to late payment",
+          "answer": "Get started: https://www.singtel.com/personal/support/billing/service-suspended-due-to-late-payment"
+        },
+        {
+          "question": "Identify Singtel service ID and account number",
+          "answer": "Get started: https://www.singtel.com/personal/support/account-billing/identify-singtel-service-id-and-account-number"
+        },
+        {
+          "question": "Nominate Mobile lines to enjoy Singtel Circle benefits",
+          "answer": "Get started: https://www.singtel.com/personal/support/account/nominate-mobile-lines-to-enjoy-singtel-circle-benefits"
+        },
+        {
+          "question": "Access to Service Agreement forms",
+          "answer": "Get started: https://www.singtel.com/personal/support/account/access-to-service-agreement-forms"
+        },
+        {
+          "question": "Use password to open Service Agreement form",
+          "answer": "Get started: https://www.singtel.com/personal/support/account/use-password-to-open-service-agreement-form"
+        },
+        {
+          "question": "Update billing address and personal information",
+          "answer": "Get started: https://www.singtel.com/personal/support/account/update-personal-information/msta"
+        },
+        {
+          "question": "Check contract start date",
+          "answer": "Get started: https://www.singtel.com/personal/support/account/check-contract-start-date"
+        }
+      ]
+    },
+    {
+      "section": "Understanding your bill",
+      "qa": [
+        {
+          "question": "How do I read my Singtel bill?",
+          "answer": "Get started: https://cdn.aws.singtel.com/billexplainer/index.html"
+        },
+        {
+          "question": "How to view detailed bill charges?",
+          "answer": "Get started: https://www.singtel.com/personal/support/billing/view-detailed-bill-charges"
+        },
+        {
+          "question": "Why is my bill higher than usual?",
+          "answer": "Get started: https://www.singtel.com/personal/support/billing/bill-is-higher-than-usual"
+        },
+        {
+          "question": "Why are my roaming charges more than expected?",
+          "answer": "You might have unexpected roaming charges due to the following:\n\nYou may have unknowingly accessed content that needs an internet connection through data roaming.\nIf you were on a data roaming plan, you might have switched to a non-preferred network automatically. To prevent this in future, change your network settings to manual selection in your phone’s settings."
+        },
+        {
+          "question": "Reminder charges or late payment fees",
+          "answer": "Get started: https://www.singtel.com/personal/support/billing/reminder-charges-or-late-payment-fees"
+        }
+      ]
+    },
+    {
+      "section": "Bills and payment",
+      "qa": [
+        {
+          "question": "Why should I switch to eBill?",
+          "answer": "Get started: https://www.singtel.com/personal/my-account/bills-payments/ebill"
+        },
+        {
+          "question": "How to request for eBill or paper bill?",
+          "answer": "Get started: https://www.singtel.com/personal/support/billing/request-for-eBill-or-paper-bill"
+        },
+        {
+          "question": "What bill payment methods are available?",
+          "answer": "Get started: https://www.singtel.com/personal/support/billing/bill-payment-methods"
+        },
+        {
+          "question": "How will the GST rate change impact my bill?",
+          "answer": "Find out more"
+        },
+        {
+          "question": "I am billed for contents that I did not purchase. What should I do?",
+          "answer": "As digital goods and services purchased by you are provided by the app stores or app developers, you are advised to contact the app store or developer directly for any enquiries relating to the goods and services, as Singtel is unable to verify the receipt or quality of the goods and services. Click the attached document for more information."
+        },
+        {
+          "question": "Why is my payment not reflected?",
+          "answer": "Get started: https://www.singtel.com/personal/support/billing/payment-not-reflected"
+        }
+      ]
+    }
+  ]
+}
