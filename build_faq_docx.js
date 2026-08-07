@@ -2,6 +2,7 @@ const fs = require("fs");
 const {
   Document, Packer, Paragraph, TextRun, ExternalHyperlink, HeadingLevel,
   AlignmentType, ShadingType, BorderStyle, LevelFormat, convertInchesToTwip,
+  Table, TableRow, TableCell, WidthType, TableLayoutType,
 } = require("docx");
 
 // ---------------------------------------------------------------- palette ---
@@ -40,30 +41,55 @@ function runs(parts, { bold = false, size = 22, color = BLACK } = {}) {
 }
 
 // ---------------------------------------------------------------- banner ----
+// A4 (11906 twips) less the 1080-twip side margins set on the section.
+const CONTENT_W = 11906 - 1080 * 2; // 9746
+const BANNER_PAD = 260;             // single padding value, all four sides
+const NO_BORDER = { style: BorderStyle.NONE, size: 0, color: "auto" };
+
+// Both banner lines live in ONE table cell whose margins supply the only
+// horizontal padding, so the two lines cannot drift apart: neither paragraph
+// carries an indent of its own.
 function banner(title) {
-  const shade = { type: ShadingType.CLEAR, fill: SC_BLUE, color: "auto" };
-  return [
-    new Paragraph({
-      shading: shade,
-      spacing: { before: 240, after: 0, line: 260 },
-      indent: { left: 240, right: 240 },
-      children: [
-        new TextRun({
-          text: "Standard Chartered Singapore",
-          bold: true, smallCaps: true, size: 20, color: GREEN, characterSpacing: 80,
-        }),
-      ],
-    }),
-    // Heading 1 lives inside the banner so the title is TOC-navigable without
-    // being repeated as a separate visible heading below it.
-    new Paragraph({
-      heading: HeadingLevel.HEADING_1,
-      shading: shade,
-      spacing: { before: 60, after: 300, line: 420 },
-      indent: { left: 240, right: 240 },
-      children: [new TextRun({ text: title, bold: true, size: 40, color: "FFFFFF" })],
-    }),
-  ];
+  return new Table({
+    width: { size: CONTENT_W, type: WidthType.DXA },
+    columnWidths: [CONTENT_W],
+    layout: TableLayoutType.FIXED,
+    margins: { top: BANNER_PAD, bottom: BANNER_PAD, left: BANNER_PAD, right: BANNER_PAD },
+    borders: {
+      top: NO_BORDER, bottom: NO_BORDER, left: NO_BORDER, right: NO_BORDER,
+      insideHorizontal: NO_BORDER, insideVertical: NO_BORDER,
+    },
+    rows: [
+      new TableRow({
+        children: [
+          new TableCell({
+            width: { size: CONTENT_W, type: WidthType.DXA },
+            shading: { type: ShadingType.CLEAR, fill: SC_BLUE, color: "auto" },
+            children: [
+              new Paragraph({
+                spacing: { before: 0, after: 0, line: 260 },
+                indent: { left: 0, right: 0 },
+                children: [
+                  new TextRun({
+                    text: "Standard Chartered Singapore",
+                    bold: true, smallCaps: true, size: 20, color: GREEN, characterSpacing: 80,
+                  }),
+                ],
+              }),
+              // Heading 1 lives inside the banner so the title is TOC-navigable
+              // without being repeated as a separate visible heading below it.
+              new Paragraph({
+                heading: HeadingLevel.HEADING_1,
+                spacing: { before: 60, after: 0, line: 420 },
+                indent: { left: 0, right: 0 },
+                children: [new TextRun({ text: title, bold: true, size: 40, color: "FFFFFF" })],
+              }),
+            ],
+          }),
+        ],
+      }),
+    ],
+  });
 }
 
 // -------------------------------------------------------------- structure ---
@@ -319,7 +345,10 @@ const CATEGORIES = [
 ];
 
 // ------------------------------------------------------------------ build ---
-const children = [...banner("Standard Chartered Singapore Help Centre FAQ")];
+const children = [
+  banner("Standard Chartered Singapore Help Centre FAQ"),
+  new Paragraph({ spacing: { before: 0, after: 0, line: 240 }, children: [] }), // spacer below banner
+];
 let counter = 0; // continuous across the whole document — never resets
 for (const cat of CATEGORIES) {
   children.push(categoryBar(cat.name));
@@ -355,7 +384,12 @@ const doc = new Document({
     ],
   },
   sections: [{
-    properties: { page: { margin: { top: 1080, bottom: 1080, left: 1080, right: 1080 } } },
+    properties: {
+      page: {
+        size: { width: 11906, height: 16838 }, // A4 — CONTENT_W is derived from this
+        margin: { top: 1080, bottom: 1080, left: 1080, right: 1080 },
+      },
+    },
     children,
   }],
 });
