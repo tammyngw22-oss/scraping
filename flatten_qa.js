@@ -257,7 +257,16 @@ function collectItems(blocks, url, question, items) {
   const segments = [{ heading: null, blocks: [], faqs: [] }];
   for (const b of blocks) {
     if (b.type === 'heading') {
-      segments.push({ heading: b.text, blocks: [], faqs: [] });
+      // A source page occasionally uses a full self-service sentence as a
+      // heading instead of a real topic label (e.g. "...let us know by
+      // filling out the form provided:"). Headings feed straight into the
+      // synthesized question via chainQuestion() and never otherwise pass
+      // through the contact/self-service filter that body text gets, so
+      // run it through the same cleanup here and fall back to no heading
+      // (question stays unchanged) rather than baking dead instructions
+      // into the question itself.
+      const cleaned = stripDeadLinkPhrases(stripContactSentences(b.text));
+      segments.push({ heading: cleaned && !isEmojiOnly(cleaned) ? cleaned : null, blocks: [], faqs: [] });
     } else if (b.type === 'faq') {
       if (!isContactLine(b.question)) segments[segments.length - 1].faqs.push(b);
     } else {
