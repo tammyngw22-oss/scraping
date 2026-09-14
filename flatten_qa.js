@@ -64,6 +64,8 @@ const DROP_KEYWORDS = [
   'materials through the form below',
   'submit this form to grab', 'raise the issue with',
   'the business team will get back to you',
+  "organisation's support team", 'reach out to hubbo pos personnel',
+  'contact hubbo pos personnel',
   "we're here to help", 'feel free to reach out',
   'grab support team via', 'contact grab support', '24/7 support team',
   'chat with gx buddy', 'contact gx bank', "contact gx bank's",
