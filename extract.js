@@ -87,15 +87,41 @@ function walk($, el, blocks) {
   if (tag === 'table') {
     if (isExternalNavBlock($, node)) return; // drop off-site link directories
     const rows = [];
+    // A rowspan'd cell (e.g. one shared "CategoryName" label spanning several
+    // error-message rows below it) appears in the DOM only once, on its first
+    // row — the rows it spans have no cell there at all. Building rows by
+    // just reading each <tr>'s own th/td left every later spanned row one
+    // column short, so cells after the gap silently shifted left under the
+    // wrong header (an error message ending up labelled "Column header",
+    // its real explanation labelled "Error message", etc). Track pending
+    // rowspans per column and re-insert the carried-over value at its
+    // original column position before this row's own cells.
+    const pendingRowspans = {}; // colIndex -> { value, remaining }
     $(node).find('tr').each((i, tr) => {
       const cells = [];
-      $(tr).find('th,td').each((j, cell) => {
+      let col = 0;
+      const htmlCells = $(tr).find('th,td').toArray();
+      let ci = 0;
+      while (ci < htmlCells.length || pendingRowspans[col]) {
+        if (pendingRowspans[col]) {
+          cells[col] = pendingRowspans[col].value;
+          pendingRowspans[col].remaining--;
+          if (pendingRowspans[col].remaining <= 0) delete pendingRowspans[col];
+          col++;
+          continue;
+        }
+        const cell = htmlCells[ci];
         // A cell can contain a nested list (e.g. several bullet points under
         // one topic) — join those as "; "-separated text instead of a
         // run-on blob so the cell stays readable.
         const liTexts = $(cell).find('li').map((k, li) => cleanText(safeText($, li))).get();
-        cells.push(liTexts.length ? liTexts.join('; ') : cleanText(safeText($, cell)));
-      });
+        const text = liTexts.length ? liTexts.join('; ') : cleanText(safeText($, cell));
+        cells[col] = text;
+        const rowspan = parseInt($(cell).attr('rowspan'), 10);
+        if (rowspan > 1) pendingRowspans[col] = { value: text, remaining: rowspan - 1 };
+        col++;
+        ci++;
+      }
       if (cells.length) rows.push(cells);
     });
     // A table only has a real header row when the source actually marks one
