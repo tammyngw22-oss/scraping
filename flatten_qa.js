@@ -36,6 +36,32 @@ const DROP_KEYWORDS = [
   'fill in the form below', 'fill out the form below', 'fill up the form below',
   'submit your inquiry here', 'get back to you within',
   'help us understand your issue',
+  // Same dead-end pattern, wider net of exact phrasings found across
+  // categories -- each one is its own complete, self-contained sentence
+  // with nothing else worth keeping (verified individually, since a bare
+  // 'form below'/'submit your request' catch-all would also strip
+  // legitimate steps that happen to end in a real in-product submit
+  // action, e.g. "Upload the completed template ... and submit your
+  // request through the form below." as the final step of an otherwise
+  // concrete how-to).
+  'unsure of your login credentials', "don't know your login credentials",
+  'filling out the form below', 'filling up the form below',
+  'reach out to us using the form below', 'let us know via the form below',
+  'fill out a form using one of the links below',
+  'submit a request and our team will get back',
+  'submit a request using the form below', 'submit a request using this form',
+  'submit the form and our team will reach out',
+  'completing the form below', 'filling out the form provided',
+  "fill out the form, and we'll",
+  'contact us here to learn more about rates',
+  'submit your request to us using the form below',
+  'feel free to submit your queries here',
+  'codes are damaged or you need additional qr codes',
+  'qr codes are damaged or you need replacements',
+  'submitting the form below', 'submit your business information here',
+  'get back to you as soon as possible',
+  'submit your request via the form below', 'raise your concerns using the form below',
+  'materials through the form below',
   "we're here to help", 'feel free to reach out',
   'grab support team via', 'contact grab support', '24/7 support team',
   'chat with gx buddy', 'contact gx bank', "contact gx bank's",
