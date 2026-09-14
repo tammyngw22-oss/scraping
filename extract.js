@@ -13,6 +13,15 @@ function cleanText(s) {
   return (s || '').replace(/\s+/g, ' ').replace(/ /g, ' ').trim();
 }
 
+// cheerio's .text() walks every descendant text node, including the raw
+// CSS/JS inside <style>/<script> — a browser's rendered text skips those,
+// cheerio does not. Source pages here sometimes nest a stray <style> tag
+// directly inside a <p> (malformed but real), so strip script/style before
+// reading text anywhere, not just in one fallback branch.
+function safeText($, node) {
+  return $(node).clone().find('script, style').remove().end().text();
+}
+
 // A <ul>/<table> is "external nav chrome" (a link directory pointing off-site,
 // not real content) when most of its text comes from <a> tags whose href
 // points outside help.grab.com. These showed up verbatim, repeated across
@@ -29,7 +38,7 @@ function isExternalNavBlock($, node) {
     linkTextLen += text.length;
     if (/^https?:\/\//i.test(href) && !href.includes('help.grab.com')) externalCount++;
   });
-  const totalLen = cleanText($(node).text()).length || 1;
+  const totalLen = cleanText(safeText($, node)).length || 1;
   // Either most of the block's text is link text (a plain link list), or it
   // links out to the same external site several times (a table whose other
   // columns are plain descriptive text around those links, e.g. a directory
@@ -46,12 +55,12 @@ function walk($, el, blocks) {
   if (['script', 'style', 'button', 'input', 'label', 'textarea', 'form', 'iframe'].includes(tag)) return;
 
   if (['h1', 'h2', 'h3', 'h4', 'h5'].includes(tag)) {
-    const text = cleanText($(node).text());
+    const text = cleanText(safeText($, node));
     if (text) blocks.push({ type: 'heading', level: parseInt(tag[1], 10), text });
     return;
   }
   if (tag === 'p') {
-    const text = cleanText($(node).text());
+    const text = cleanText(safeText($, node));
     if (text) blocks.push({ type: 'paragraph', text });
     return;
   }
@@ -59,12 +68,12 @@ function walk($, el, blocks) {
     if (isExternalNavBlock($, node)) return; // drop off-site link directories
     const items = [];
     $(node).children('li').each((i, li) => {
-      const text = cleanText($(li).clone().children('ul,ol').remove().end().text());
+      const text = cleanText(safeText($, $(li).clone().children('ul,ol').remove().end()));
       if (text) items.push(text);
       // nested lists inside li: flatten as sub-items with indent marker
       $(li).children('ul,ol').each((j, nested) => {
         $(nested).children('li').each((k, nli) => {
-          const ntext = cleanText($(nli).text());
+          const ntext = cleanText(safeText($, nli));
           if (ntext) items.push('    - ' + ntext);
         });
       });
@@ -81,8 +90,8 @@ function walk($, el, blocks) {
         // A cell can contain a nested list (e.g. several bullet points under
         // one topic) — join those as "; "-separated text instead of a
         // run-on blob so the cell stays readable.
-        const liTexts = $(cell).find('li').map((k, li) => cleanText($(li).text())).get();
-        cells.push(liTexts.length ? liTexts.join('; ') : cleanText($(cell).text()));
+        const liTexts = $(cell).find('li').map((k, li) => cleanText(safeText($, li))).get();
+        cells.push(liTexts.length ? liTexts.join('; ') : cleanText(safeText($, cell)));
       });
       if (cells.length) rows.push(cells);
     });
@@ -90,7 +99,7 @@ function walk($, el, blocks) {
     return;
   }
   if (tag === 'details') {
-    const summary = cleanText($(node).children('summary').first().text());
+    const summary = cleanText(safeText($, $(node).children('summary').first()));
     const innerBlocks = [];
     $(node).contents().each((i, child) => {
       if ((child.tagName || '').toLowerCase() === 'summary') return;
@@ -104,7 +113,7 @@ function walk($, el, blocks) {
     return;
   }
   if (tag === 'blockquote') {
-    const text = cleanText($(node).text());
+    const text = cleanText(safeText($, node));
     if (text) blocks.push({ type: 'paragraph', text: text });
     return;
   }
@@ -123,7 +132,7 @@ function walk($, el, blocks) {
   // structure is preserved.
   const hasBlockDescendant = $(node).find('p, ul, ol, table, details, blockquote, h1, h2, h3, h4, h5').length > 0;
   if (!hasBlockDescendant) {
-    const text = cleanText($(node).text());
+    const text = cleanText(safeText($, node));
     if (text) blocks.push({ type: 'paragraph', text, emphasis: tag === 'strong' || tag === 'b' });
     return;
   }

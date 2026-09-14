@@ -116,34 +116,54 @@ function isOutlineOnly(lines) {
   return lines.length > 0 && lines.every(l => l.endsWith(':') && !l.startsWith('-'));
 }
 
-// Recursively walks a block list: returns this level's OWN flattened prose
-// lines (excluding nested faq blocks), while pushing every faq found at ANY
-// depth as its own separate, fully self-contained Q&A item into `items`.
-// This matters because source articles sometimes nest a FAQ inside another
-// FAQ (e.g. "Setting up X" > "From the Y page" > actual steps) — without
-// recursing, that inner content was silently dropped instead of just being
-// mis-labeled.
-function collectItems(blocks, url, items) {
-  const lines = [];
+// Splits a block list into segments at each heading boundary, so a long
+// guide that uses H2/H3 sub-headings to organize several distinct topics
+// (e.g. "Who can use CRM" / "Create a campaign" / "Tracking performance")
+// becomes several focused Q&As instead of one giant answer covering all of
+// them — a RAG query about one sub-topic should retrieve just that part,
+// not a wall of text where the specific answer is buried among nine others.
+function splitByHeading(blocks) {
+  const segments = [{ heading: null, blocks: [] }];
   for (const b of blocks) {
-    if (b.type === 'faq') {
-      if (isContactLine(b.question)) continue;
-      // Collect this faq's own children into a separate array first, so the
-      // same outline-only suppression applies at every nesting depth, not
-      // just the top-level article — a mid-tree "Setting up X" faq whose own
-      // text is just "Follow these steps:" is exactly as low-value as an
-      // article-level table of contents once its real children exist.
-      const subItems = [];
-      const nestedLines = mergeLabelLines(collectItems(b.blocks, url, subItems));
-      if (nestedLines.length > 0 && !(isOutlineOnly(nestedLines) && subItems.length > 0)) {
-        items.push({ q: b.question, a: nestedLines, url });
-      }
-      items.push(...subItems);
+    if (b.type === 'heading') {
+      segments.push({ heading: b.text, blocks: [] });
     } else {
-      lines.push(...blockToLines(b));
+      segments[segments.length - 1].blocks.push(b);
     }
   }
-  return lines;
+  return segments.filter(s => s.heading || s.blocks.length > 0);
+}
+
+// Recursively walks a block list, pushing one Q&A item per heading-split
+// segment of THIS level's own content (question, or "question: heading"
+// when segmented) plus one item per nested faq found at ANY depth — a faq
+// inside a faq (e.g. "Setting up X" > "From the Y page" > actual steps)
+// still becomes its own item instead of being silently dropped.
+function collectItems(blocks, url, question, items) {
+  const faqBlocks = [];
+  const nonFaqBlocks = [];
+  for (const b of blocks) {
+    if (b.type === 'faq' && !isContactLine(b.question)) faqBlocks.push(b);
+    else if (b.type !== 'faq') nonFaqBlocks.push(b);
+  }
+
+  for (const fb of faqBlocks) {
+    collectItems(fb.blocks, url, fb.question, items);
+  }
+
+  const ownItems = [];
+  for (const seg of splitByHeading(nonFaqBlocks)) {
+    const lines = mergeLabelLines(seg.blocks.flatMap(blockToLines));
+    if (lines.length === 0) continue;
+    const q = seg.heading ? `${question}: ${seg.heading}` : question;
+    ownItems.push({ q, a: lines, url });
+  }
+  // A single outline-only own-segment ("About X" -> just section labels)
+  // adds nothing once the real content already exists as split-out items.
+  if (ownItems.length === 1 && isOutlineOnly(ownItems[0].a) && faqBlocks.length > 0) {
+    return;
+  }
+  items.push(...ownItems);
 }
 
 const KNOWN_CATEGORIES = ['GrabFood', 'GrabMart', 'Payment Services', 'GrabExpress', 'Dine Out', 'Hubbo', 'Reservations', 'Marketing', 'Financing', 'GXBank'];
@@ -160,15 +180,10 @@ for (const file of fs.readdirSync(EXTRACTED_DIR)) {
   byCategory[category] = byCategory[category] || {};
   byCategory[category][subcategory] = byCategory[category][subcategory] || [];
 
-  const childItems = [];
-  const mainLines = mergeLabelLines(collectItems(article.blocks, url, childItems));
-  const allItems = [];
-  if (mainLines.length > 0 && !(isOutlineOnly(mainLines) && childItems.length > 0)) {
-    allItems.push({ q: title, a: mainLines, url });
-  }
-  allItems.push(...childItems);
+  const items = [];
+  collectItems(article.blocks, url, title, items);
 
-  for (const it of allItems) {
+  for (const it of items) {
     byCategory[category][subcategory].push(it);
     totalItems++;
   }
