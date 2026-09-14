@@ -45,16 +45,27 @@ function filledBanner(titleText, subText) {
 }
 
 function contentTable(rows) {
-  const trs = rows.map((r, ri) => new TableRow({
-    children: r.map(cellText => new TableCell({
-      width: { size: Math.floor(CONTENT_WIDTH_DXA / r.length), type: WidthType.DXA },
-      shading: ri === 0 ? { type: ShadingType.CLEAR, fill: 'E8F7EE' } : undefined,
-      margins: { top: 100, bottom: 100, left: 120, right: 120 },
-      children: [new Paragraph({ children: [new TextRun({ text: cellText, bold: ri === 0, color: BODY_COLOR, size: 20 })] })],
-    })),
-  }));
+  // Rows can be ragged (a source <td rowspan> means later rows have fewer
+  // <td>s than the header) — pad to a uniform column count so every row
+  // lines up under the right header instead of drifting left.
+  const maxCols = Math.max(...rows.map(r => r.length), 1);
+  const colWidth = Math.floor(CONTENT_WIDTH_DXA / maxCols);
+  const columnWidths = new Array(maxCols).fill(colWidth);
+
+  const trs = rows.map((r, ri) => {
+    const padded = r.concat(new Array(Math.max(0, maxCols - r.length)).fill(''));
+    return new TableRow({
+      children: padded.map(cellText => new TableCell({
+        width: { size: colWidth, type: WidthType.DXA },
+        shading: ri === 0 ? { type: ShadingType.CLEAR, fill: 'E8F7EE' } : undefined,
+        margins: { top: 100, bottom: 100, left: 120, right: 120 },
+        children: [new Paragraph({ children: [new TextRun({ text: cellText, bold: ri === 0, color: BODY_COLOR, size: 20 })] })],
+      })),
+    });
+  });
   return new Table({
     width: { size: CONTENT_WIDTH_DXA, type: WidthType.DXA },
+    columnWidths,
     borders: {
       top: { style: BorderStyle.SINGLE, size: 4, color: 'CCCCCC' },
       bottom: { style: BorderStyle.SINGLE, size: 4, color: 'CCCCCC' },
@@ -67,9 +78,32 @@ function contentTable(rows) {
   });
 }
 
-function renderBlocks(blocks, children, depth) {
+// Blocks identical to one already emitted earlier in the SAME category file
+// are within-file near-duplicates (e.g. a support-contact callout box
+// repeated verbatim at the end of every article in a section) — skip
+// re-emitting them per the skill's near-duplicate consolidation rule.
+// Cross-file repetition (the same policy appearing in a different category's
+// file) is left alone; only within-file repeats are collapsed.
+function blockSignature(b) {
+  if (b.type === 'paragraph') return b.text.length > 60 ? `p:${b.text}` : null;
+  if (b.type === 'list') return `l:${b.items.join('|')}`;
+  if (b.type === 'table') return `t:${b.rows.map(r => r.join('|')).join('~')}`;
+  return null;
+}
+
+function renderBlocks(blocks, children, depth, seen) {
   const indent = depth ? { left: 360 } : undefined;
   for (const b of blocks) {
+    // Only dedupe at the top level of an article's own body (depth 0) —
+    // boilerplate preambles/footers (a disclaimer, a contact-channels list)
+    // live there. Never dedupe inside a nested FAQ answer: two different
+    // articles can legitimately share the same eligibility list inside an
+    // accordion answer, and skipping it there would orphan its heading.
+    const sig = depth === 0 ? blockSignature(b) : null;
+    if (sig) {
+      if (seen.has(sig)) continue;
+      seen.add(sig);
+    }
     if (b.type === 'heading') {
       const size = b.level <= 2 ? 26 : b.level === 3 ? 24 : 22;
       children.push(new Paragraph({
@@ -104,13 +138,14 @@ function renderBlocks(blocks, children, depth) {
         spacing: { before: 140, after: 60 },
         indent,
       }));
-      renderBlocks(b.blocks, children, (depth || 0) + 1);
+      renderBlocks(b.blocks, children, (depth || 0) + 1, seen);
     }
   }
 }
 
 function buildCategoryDoc(category, articlesBySubcat) {
   const children = [];
+  const seen = new Set(); // within-file near-duplicate tracker, scoped to this one category doc
   children.push(filledBanner(
     `Grab Merchant Help Centre (Malaysia) — ${category}`,
     `Merchant · Source: ${SOURCE_ROOT}`
@@ -130,7 +165,7 @@ function buildCategoryDoc(category, articlesBySubcat) {
         children: [new TextRun({ text: `Source: ${art.url}`, italics: true, color: '707070', size: 16 })],
         spacing: { after: 100 },
       }));
-      renderBlocks(art.blocks, children, 0);
+      renderBlocks(art.blocks, children, 0, seen);
       children.push(new Paragraph({ text: '', spacing: { after: 100 } }));
     }
   }

@@ -13,6 +13,30 @@ function cleanText(s) {
   return (s || '').replace(/\s+/g, ' ').replace(/ /g, ' ').trim();
 }
 
+// A <ul>/<table> is "external nav chrome" (a link directory pointing off-site,
+// not real content) when most of its text comes from <a> tags whose href
+// points outside help.grab.com. These showed up verbatim, repeated across
+// nearly every article in a section (e.g. a GXBank article-to-article
+// "helpful links to help.gxbank.my" block) and add no unique content.
+function isExternalNavBlock($, node) {
+  const anchors = $(node).find('a[href]');
+  if (anchors.length === 0) return false;
+  let linkTextLen = 0;
+  let externalCount = 0;
+  anchors.each((i, a) => {
+    const href = $(a).attr('href') || '';
+    const text = cleanText($(a).text());
+    linkTextLen += text.length;
+    if (/^https?:\/\//i.test(href) && !href.includes('help.grab.com')) externalCount++;
+  });
+  const totalLen = cleanText($(node).text()).length || 1;
+  // Either most of the block's text is link text (a plain link list), or it
+  // links out to the same external site several times (a table whose other
+  // columns are plain descriptive text around those links, e.g. a directory
+  // of an unrelated site's FAQ sections) — both patterns are nav chrome.
+  return externalCount >= 3 || (externalCount >= 1 && (linkTextLen / totalLen) > 0.6);
+}
+
 // Recursively walk a cheerio element's children, producing block objects.
 function walk($, el, blocks) {
   const node = el;
@@ -32,6 +56,7 @@ function walk($, el, blocks) {
     return;
   }
   if (tag === 'ul' || tag === 'ol') {
+    if (isExternalNavBlock($, node)) return; // drop off-site link directories
     const items = [];
     $(node).children('li').each((i, li) => {
       const text = cleanText($(li).clone().children('ul,ol').remove().end().text());
@@ -48,11 +73,16 @@ function walk($, el, blocks) {
     return;
   }
   if (tag === 'table') {
+    if (isExternalNavBlock($, node)) return; // drop off-site link directories
     const rows = [];
     $(node).find('tr').each((i, tr) => {
       const cells = [];
       $(tr).find('th,td').each((j, cell) => {
-        cells.push(cleanText($(cell).text()));
+        // A cell can contain a nested list (e.g. several bullet points under
+        // one topic) — join those as "; "-separated text instead of a
+        // run-on blob so the cell stays readable.
+        const liTexts = $(cell).find('li').map((k, li) => cleanText($(li).text())).get();
+        cells.push(liTexts.length ? liTexts.join('; ') : cleanText($(cell).text()));
       });
       if (cells.length) rows.push(cells);
     });
@@ -66,6 +96,10 @@ function walk($, el, blocks) {
       if ((child.tagName || '').toLowerCase() === 'summary') return;
       walk($, child, innerBlocks);
     });
+    // Skip FAQ entries whose answer is image-only / empty (no extractable
+    // text at all) — a bare question with nothing under it isn't useful,
+    // per the skill's image-only-content rule.
+    if (innerBlocks.length === 0) return;
     blocks.push({ type: 'faq', question: summary, blocks: innerBlocks });
     return;
   }
@@ -77,15 +111,22 @@ function walk($, el, blocks) {
   if (tag === 'img' || tag === 'br' || tag === 'hr' || tag === 'svg') {
     return;
   }
-  if (tag === 'strong' || tag === 'b' || tag === 'em' || tag === 'i') {
-    // Bare inline emphasis not wrapped in a <p> (e.g. a standalone callout
-    // label like "Important Note:") — emit as its own short bold paragraph
-    // instead of silently dropping it.
+  // Generic container (div, span, strong, a, etc.) not handled above. If it
+  // has no block-level descendant anywhere inside, it's just mixed inline
+  // content (plain text alongside <strong>/<em>/<a> spans, e.g. a callout
+  // like "<strong>Important:</strong> some sentence <strong>with a
+  // bolded phrase</strong> in the middle.") that isn't wrapped in a <p> —
+  // take its whole text as one paragraph instead of recursing, which would
+  // silently drop the bare text nodes between the inline tags and keep only
+  // the bold fragments. Only descend into children when a real block
+  // element (p/list/table/details/heading) is nested inside, so that
+  // structure is preserved.
+  const hasBlockDescendant = $(node).find('p, ul, ol, table, details, blockquote, h1, h2, h3, h4, h5').length > 0;
+  if (!hasBlockDescendant) {
     const text = cleanText($(node).text());
-    if (text) blocks.push({ type: 'paragraph', text, emphasis: true });
+    if (text) blocks.push({ type: 'paragraph', text, emphasis: tag === 'strong' || tag === 'b' });
     return;
   }
-  // Generic container (div, section, span, a, etc.) — recurse into children
   $(node).contents().each((i, child) => walk($, child, blocks));
 }
 
