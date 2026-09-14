@@ -62,15 +62,32 @@ function stripContactSentences(text) {
 // "Learn more here." / "click here" style cross-references pointed at a link
 // we've already stripped out of the content — dead references with nothing
 // for the agent to act on, per the skill's no-dangling-cross-reference rule.
+// A leading ", " right before the phrase (e.g. "...merchant types, click
+// here.") is consumed too, since removing just "click here." would leave
+// "...merchant types," dangling with no closing punctuation.
+const LEADING_COMMA_BEFORE_DEAD_LINK_RE = /,\s*(?=\b(?:click|learn more|find out more)\s*(?:about\s+\S+\s+)?here\b)/gi;
 const DEAD_LINK_RE = /\b(learn more|find out more|click)\s*(about\s+\S+\s+)?here\b\.?/gi;
 function stripDeadLinkPhrases(text) {
-  let t = text.replace(DEAD_LINK_RE, '');
+  const before = text;
+  let t = text.replace(LEADING_COMMA_BEFORE_DEAD_LINK_RE, ' ');
+  t = t.replace(DEAD_LINK_RE, '');
   // A dangling "...submit it here." at the very end of the text was a link
   // to a form/page we've already stripped out — drop just that trailing
   // word rather than leave an unresolvable reference (only at the end, so
   // legitimate mid-sentence uses of "here" are left alone).
   t = t.replace(/\s+here\.?\s*$/i, '.');
-  return t.replace(/\s{2,}/g, ' ').trim();
+  const changed = t !== before;
+  t = t.replace(/\s{2,}/g, ' ').trim();
+  // Only normalize trailing punctuation when we actually removed something
+  // above — otherwise this would corrupt untouched text (e.g. a heading
+  // like "Key Features" getting a stray "." before its own ":" suffix).
+  // What's left may end in a dangling comma (no closing punctuation) or
+  // nothing at all where a sentence used to continue; make it read complete.
+  if (changed && t) {
+    t = t.replace(/,+\s*$/, '.').replace(/\.{2,}$/, '.');
+    if (!/[.!?:]$/.test(t)) t += '.';
+  }
+  return t;
 }
 
 // Render one block (and its children) as plain prose lines. Returns an array
@@ -95,14 +112,19 @@ function blockToLines(b) {
     const header = b.rows[0];
     const dataRows = b.rows.slice(1).length ? b.rows.slice(1) : [];
     if (dataRows.length === 0) {
-      // No header/data split detected — just join the single row.
+      // No header/data split detected — just join the single row. A table
+      // with only empty cells (e.g. a layout table that held an icon/image
+      // in the source) joins into bare punctuation like "," — drop that.
       const rowText = stripContactSentences(header.join(', '));
-      if (rowText) lines.push(rowText);
+      if (rowText && !isEmojiOnly(rowText)) lines.push(rowText);
     } else {
       for (const row of dataRows) {
-        const parts = row.map((cell, i) => header[i] ? `${header[i]}: ${cell}` : cell);
+        // A ragged row (fewer cells than the header, from a merged/rowspan
+        // cell) leaves trailing empty parts — join() over those produces a
+        // dangling ", , " or trailing comma, so drop empty parts first.
+        const parts = row.map((cell, i) => header[i] ? `${header[i]}: ${cell}` : cell).filter(p => p && p.trim());
         const rowText = stripContactSentences(parts.join(', '));
-        if (rowText) lines.push(rowText);
+        if (rowText && !isEmojiOnly(rowText)) lines.push(rowText);
       }
     }
   }
@@ -187,7 +209,7 @@ function collectItems(blocks, url, question, items) {
   }
 }
 
-const KNOWN_CATEGORIES = ['GrabFood', 'GrabMart', 'Payment Services', 'GrabExpress', 'Dine Out', 'Hubbo', 'Reservations', 'Marketing', 'Financing', 'GXBank'];
+const KNOWN_CATEGORIES = ['GrabFood', 'GrabMart', 'Payment Services', 'GrabExpress', 'Dine Out', 'Hubbo', 'Reservations', 'Marketing', 'Financing', 'GXBank', 'Get Started'];
 
 let totalItems = 0;
 const byCategory = {};
