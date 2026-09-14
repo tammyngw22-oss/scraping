@@ -28,6 +28,14 @@ const DROP_KEYWORDS = [
   // provided.") — the other known escalation case using WhatsApp already
   // carries an email address and is caught by EMAIL_RE regardless.
   'whatsapp group',
+  // Pure self-service dead-ends: the page points at a live web form or
+  // ticketing flow that isn't captured in the static HTML at all (no fields,
+  // no linked content to pull in) — nothing concrete to substitute, so the
+  // instruction itself is dropped rather than left as a dangling
+  // "go do this elsewhere" pointer with no actionable content.
+  'fill in the form below', 'fill out the form below', 'fill up the form below',
+  'submit your inquiry here', 'get back to you within',
+  'help us understand your issue',
   "we're here to help", 'feel free to reach out',
   'grab support team via', 'contact grab support', '24/7 support team',
   'chat with gx buddy', 'contact gx bank', "contact gx bank's",
