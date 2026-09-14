@@ -3,10 +3,36 @@
 // help.gxbank.my — into ONE file with continuous Q#/A# numbering
 // throughout, no tables, no contact info.
 const fs = require('fs');
+const cheerio = require('cheerio');
 const {
   Document, Packer, Paragraph, TextRun,
   Table, TableRow, TableCell, WidthType, ShadingType, BorderStyle
 } = require('docx');
+
+// Build a group-name -> hub-page-URL map straight from the already-fetched
+// topic pages, so each subcategory banner can cite exactly where that
+// group's content lives on the source site (not just the overall topic).
+function loadGroupUrls(htmlFile) {
+  const html = fs.readFileSync(htmlFile, 'utf8');
+  const $ = cheerio.load(html);
+  const map = {};
+  $('.mt-sortable-listing').each((i, groupEl) => {
+    const a = $(groupEl).find('.mt-listing-detailed-title > a').first();
+    const name = a.text().trim();
+    const href = a.attr('href');
+    if (name && href) map[name] = href;
+  });
+  return map;
+}
+const GROUP_URLS = {
+  'Business Deposit': loadGroupUrls('gxbank_ext/topic_1.html'),
+  'Account Opening': loadGroupUrls('gxbank_ext/topic_2.html'),
+  'Payments & Transfers': loadGroupUrls('gxbank_ext/topic_3.html'),
+  'Business Loan': loadGroupUrls('gxbank_ext/topic_4.html'),
+  'App Security & Settings': loadGroupUrls('gxbank_ext/topic_5.html'),
+  'Security & Privacy': loadGroupUrls('gxbank_ext/topic_6.html'),
+};
+const GENERAL_GROUP_URLS = loadGroupUrls('gxbank_ext/topic_general.html');
 
 const PRIMARY = '00B14F';
 const BODY_COLOR = '1A1A1A';
@@ -54,17 +80,31 @@ const general = JSON.parse(fs.readFileSync('gxbank_ext/qa_general.json', 'utf8')
 // 3. The 6 Business topics
 const byTopic = JSON.parse(fs.readFileSync('gxbank_ext/qa_by_topic.json', 'utf8')); // { topic: { group: [items] } }
 
-// --- Assemble one ordered section list: [{ sectionLabel, items }] ---
+// --- Assemble one ordered section list: [{ sectionLabel, sourceUrl, items }] ---
 const sections = [];
 for (const [group, items] of Object.entries(original)) {
-  sections.push({ label: `GXBank › ${group}`, items });
+  // This section's own items already each carry their individual Grab
+  // article URL; the section as a whole lives under this hub page.
+  sections.push({
+    label: `GXBank › ${group}`,
+    sourceUrl: 'https://help.grab.com/merchant/en-my/20000116-GXBank-for-Merchants',
+    items,
+  });
 }
 for (const [group, items] of Object.entries(general)) {
-  sections.push({ label: `GXBank › General FAQ › ${group}`, items });
+  sections.push({
+    label: `GXBank › General FAQ › ${group}`,
+    sourceUrl: GENERAL_GROUP_URLS[group] || 'https://help.gxbank.my/general',
+    items,
+  });
 }
 for (const [topic, groups] of Object.entries(byTopic)) {
   for (const [group, items] of Object.entries(groups)) {
-    sections.push({ label: `GXBank › ${topic} › ${group}`, items });
+    sections.push({
+      label: `GXBank › ${topic} › ${group}`,
+      sourceUrl: (GROUP_URLS[topic] && GROUP_URLS[topic][group]) || null,
+      items,
+    });
   }
 }
 
@@ -81,7 +121,8 @@ children.push(new Paragraph({ text: '', spacing: { after: 200 } }));
 
 let qNum = 0;
 for (const section of sections) {
-  children.push(filledBanner(section.label, null));
+  const subText = section.sourceUrl ? `Source: ${section.sourceUrl}` : null;
+  children.push(filledBanner(section.label, subText));
   children.push(new Paragraph({ text: '', spacing: { after: 150 } }));
   for (const item of section.items) {
     qNum += 1;
