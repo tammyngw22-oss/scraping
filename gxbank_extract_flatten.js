@@ -76,7 +76,7 @@ function walk($, el, blocks) {
   if (tag === 'img' || tag === 'br' || tag === 'hr' || tag === 'svg') return;
   const hasBlockDescendant = $(node).find('p, ul, ol, h1, h2, h3, h4, h5, h6').length > 0;
   if (!hasBlockDescendant) {
-    const text = cleanText($(node).text());
+    const text = cleanText($(node).clone().find('script, style').remove().end().text());
     if (text) blocks.push({ type: 'paragraph', text });
     return;
   }
