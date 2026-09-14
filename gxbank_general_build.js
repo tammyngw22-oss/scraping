@@ -133,6 +133,7 @@ for (let i = 0; i < manifest.length; i++) {
   byGroup[m.group].push({ q: title, a: lines, url: m.url });
 }
 console.log('items kept:', Object.values(byGroup).reduce((a, arr) => a + arr.length, 0), 'empty:', empties);
+fs.writeFileSync('gxbank_ext/qa_general.json', JSON.stringify(byGroup, null, 2));
 
 // --- Build one combined docx ---
 const PRIMARY = '00B14F';
