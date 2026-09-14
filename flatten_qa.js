@@ -108,11 +108,40 @@ function mergeLabelLines(lines) {
   return out;
 }
 
-function blocksToAnswer(blocks) {
+// A pure table-of-contents ("Section 1: Introduction:", "Section 2: ...:")
+// with no real sentence anywhere isn't a usable FAQ answer on its own —
+// it's just headers pointing at content that lives in the split-out child
+// items. Suppress it in that case rather than emit an empty-feeling Q&A.
+function isOutlineOnly(lines) {
+  return lines.length > 0 && lines.every(l => l.endsWith(':') && !l.startsWith('-'));
+}
+
+// Recursively walks a block list: returns this level's OWN flattened prose
+// lines (excluding nested faq blocks), while pushing every faq found at ANY
+// depth as its own separate, fully self-contained Q&A item into `items`.
+// This matters because source articles sometimes nest a FAQ inside another
+// FAQ (e.g. "Setting up X" > "From the Y page" > actual steps) — without
+// recursing, that inner content was silently dropped instead of just being
+// mis-labeled.
+function collectItems(blocks, url, items) {
   const lines = [];
   for (const b of blocks) {
-    if (b.type === 'faq') continue; // handled as its own separate Q&A
-    lines.push(...blockToLines(b));
+    if (b.type === 'faq') {
+      if (isContactLine(b.question)) continue;
+      // Collect this faq's own children into a separate array first, so the
+      // same outline-only suppression applies at every nesting depth, not
+      // just the top-level article — a mid-tree "Setting up X" faq whose own
+      // text is just "Follow these steps:" is exactly as low-value as an
+      // article-level table of contents once its real children exist.
+      const subItems = [];
+      const nestedLines = mergeLabelLines(collectItems(b.blocks, url, subItems));
+      if (nestedLines.length > 0 && !(isOutlineOnly(nestedLines) && subItems.length > 0)) {
+        items.push({ q: b.question, a: nestedLines, url });
+      }
+      items.push(...subItems);
+    } else {
+      lines.push(...blockToLines(b));
+    }
   }
   return lines;
 }
@@ -131,18 +160,16 @@ for (const file of fs.readdirSync(EXTRACTED_DIR)) {
   byCategory[category] = byCategory[category] || {};
   byCategory[category][subcategory] = byCategory[category][subcategory] || [];
 
-  const mainLines = mergeLabelLines(blocksToAnswer(article.blocks));
-  if (mainLines.length > 0) {
-    byCategory[category][subcategory].push({ q: title, a: mainLines, url });
-    totalItems++;
+  const childItems = [];
+  const mainLines = mergeLabelLines(collectItems(article.blocks, url, childItems));
+  const allItems = [];
+  if (mainLines.length > 0 && !(isOutlineOnly(mainLines) && childItems.length > 0)) {
+    allItems.push({ q: title, a: mainLines, url });
   }
+  allItems.push(...childItems);
 
-  for (const b of article.blocks) {
-    if (b.type !== 'faq') continue;
-    const faqLines = mergeLabelLines(blocksToAnswer(b.blocks));
-    if (faqLines.length === 0) continue; // image-only / empty answer
-    if (isContactLine(b.question)) continue;
-    byCategory[category][subcategory].push({ q: b.question, a: faqLines, url });
+  for (const it of allItems) {
+    byCategory[category][subcategory].push(it);
     totalItems++;
   }
 }
