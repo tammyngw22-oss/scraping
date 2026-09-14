@@ -66,6 +66,8 @@ const DROP_KEYWORDS = [
   'the business team will get back to you',
   "organisation's support team", 'reach out to hubbo pos personnel',
   'contact hubbo pos personnel',
+  'complete the form provided', 'raise a request through this article',
+  'submit a request via the help centre', 'visit our merchant blog',
   "we're here to help", 'feel free to reach out',
   'grab support team via', 'contact grab support', '24/7 support team',
   'chat with gx buddy', 'contact gx bank', "contact gx bank's",
