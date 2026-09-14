@@ -18,7 +18,16 @@ const EMAIL_RE = /[\w.+-]+@[\w-]+\.[\w.-]+/i;
 const PHONE_RE = /\+\d[\d\s-]{6,}\d/;
 const DROP_KEYWORDS = [
   'hotline', 'live chat', 'customer support team', 'contact them through',
-  'reach out to our', 'reach out to us', 'contact us', 'email:', 'call us', 'whatsapp',
+  'reach out to our', 'reach out to us', 'contact us', 'email:', 'call us',
+  // A bare 'whatsapp' keyword used to match ANY mention of WhatsApp,
+  // including it as a legitimate product/channel name (a Marketing
+  // Campaign send channel, a delivery channel, a GClub Loyalty notification
+  // channel) — that silently dropped real content (e.g. an entire pricing
+  // table whose rows all mention "WhatsApp messages"). Narrowed to the
+  // actual escalation pattern ("...or through the WhatsApp group
+  // provided.") — the other known escalation case using WhatsApp already
+  // carries an email address and is caught by EMAIL_RE regardless.
+  'whatsapp group',
   "we're here to help", 'feel free to reach out',
   'grab support team via', 'contact grab support', '24/7 support team',
   'chat with gx buddy', 'contact gx bank', "contact gx bank's",
