@@ -164,6 +164,14 @@ function isOutlineOnly(lines) {
 // becomes several focused Q&As instead of one giant answer covering all of
 // them — a RAG query about one sub-topic should retrieve just that part,
 // not a wall of text where the specific answer is buried among nine others.
+// Joins a question chain with a new part, e.g. "Parent" + "Child" ->
+// "Parent: Child". A heading/question already ending in ":" (some source
+// headings are phrased as a lead-in sentence, e.g. "...GrabMerchant App:")
+// would otherwise double up into an awkward "App:: Child".
+function chainQuestion(base, part) {
+  return `${base.replace(/:\s*$/, '')}: ${part}`;
+}
+
 function splitByHeading(blocks) {
   const segments = [{ heading: null, blocks: [] }];
   for (const b of blocks) {
@@ -181,31 +189,45 @@ function splitByHeading(blocks) {
 // when segmented) plus one item per nested faq found at ANY depth — a faq
 // inside a faq (e.g. "Setting up X" > "From the Y page" > actual steps)
 // still becomes its own item instead of being silently dropped.
+//
+// A source page often groups several FAQ accordions under a plain heading
+// with no content of its own (e.g. a "Managing Tables" heading followed
+// directly by accordions "Combine tables" / "Change table" / ...). Each
+// accordion's own question ("Combine tables") is just the on-page label and
+// isn't a self-contained question once pulled out of that visual grouping,
+// so every level of context — the running question chain plus whichever
+// heading most recently preceded it — is carried down into the recursion,
+// always, the same way a heading is folded into this level's own content.
 function collectItems(blocks, url, question, items) {
-  const faqBlocks = [];
-  const nonFaqBlocks = [];
+  const segments = [{ heading: null, blocks: [], faqs: [] }];
   for (const b of blocks) {
-    if (b.type === 'faq' && !isContactLine(b.question)) faqBlocks.push(b);
-    else if (b.type !== 'faq') nonFaqBlocks.push(b);
+    if (b.type === 'heading') {
+      segments.push({ heading: b.text, blocks: [], faqs: [] });
+    } else if (b.type === 'faq') {
+      if (!isContactLine(b.question)) segments[segments.length - 1].faqs.push(b);
+    } else {
+      segments[segments.length - 1].blocks.push(b);
+    }
   }
 
   const ownItems = [];
-  for (const seg of splitByHeading(nonFaqBlocks)) {
+  const faqEntries = [];
+  for (const seg of segments) {
     const lines = mergeLabelLines(seg.blocks.flatMap(blockToLines));
-    if (lines.length === 0) continue;
-    const q = seg.heading ? `${question}: ${seg.heading}` : question;
-    ownItems.push({ q, a: lines, url });
+    const q = seg.heading ? chainQuestion(question, seg.heading) : question;
+    if (lines.length > 0) ownItems.push({ q, a: lines, url });
+    for (const fb of seg.faqs) faqEntries.push({ fb, childQuestion: chainQuestion(q, fb.question) });
   }
   // A single outline-only own-segment ("About X" -> just section labels)
   // adds nothing once the real content already exists as split-out items.
-  const suppressOwn = ownItems.length === 1 && isOutlineOnly(ownItems[0].a) && faqBlocks.length > 0;
+  const suppressOwn = ownItems.length === 1 && isOutlineOnly(ownItems[0].a) && faqEntries.length > 0;
   // This level's own intro content (e.g. "How to make payments with debit
   // cards" leading into its accordions) reads first in the source, so push
   // it before recursing into the nested faqs — otherwise a parent's intro
   // ends up listed after all its own children, which reads backwards.
   if (!suppressOwn) items.push(...ownItems);
-  for (const fb of faqBlocks) {
-    collectItems(fb.blocks, url, fb.question, items);
+  for (const { fb, childQuestion } of faqEntries) {
+    collectItems(fb.blocks, url, childQuestion, items);
   }
 }
 
