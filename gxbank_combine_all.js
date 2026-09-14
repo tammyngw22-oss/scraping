@@ -136,6 +136,6 @@ for (const section of sections) {
 
 const doc = new Document({ sections: [{ properties: { page: { size: { width: 12240, height: 15840 } } }, children }] });
 Packer.toBuffer(doc).then(buf => {
-  fs.writeFileSync('gxbank_ext/docs/GXBank.docx', buf);
-  console.log('wrote GXBank.docx —', qNum, 'total Q&A items');
+  fs.writeFileSync('gxbank_ext/docs/Grab(MY)_FAQ_GXBank.docx', buf);
+  console.log('wrote Grab(MY)_FAQ_GXBank.docx —', qNum, 'total Q&A items');
 });
