@@ -18,14 +18,18 @@ const EMAIL_RE = /[\w.+-]+@[\w-]+\.[\w.-]+/i;
 const PHONE_RE = /\+\d[\d\s-]{6,}\d/;
 const DROP_KEYWORDS = [
   'hotline', 'live chat', 'customer support team', 'contact them through',
-  'reach out to our', 'contact us', 'email:', 'call us', 'whatsapp',
+  'reach out to our', 'reach out to us', 'contact us', 'email:', 'call us', 'whatsapp',
+  "we're here to help", 'feel free to reach out',
   'grab support team via', 'contact grab support', '24/7 support team',
   'chat with gx buddy', 'contact gx bank', "contact gx bank's",
   'helpful link', 'need more information on', 'frequently asked questions.',
 ];
 
 function isContactLine(text) {
-  const lower = text.toLowerCase();
+  // Source text uses curly quotes/apostrophes (’) — normalize to straight
+  // ones so keyword matching (written with straight ') doesn't silently
+  // miss real matches like "We're here to help!".
+  const lower = text.toLowerCase().replace(/[‘’]/g, "'");
   if (EMAIL_RE.test(text)) return true;
   if (PHONE_RE.test(text)) return true;
   return DROP_KEYWORDS.some(k => lower.includes(k));
@@ -42,7 +46,17 @@ function isEmojiOnly(text) {
 // useful sentence with one escalation sentence ("please contact support").
 function stripContactSentences(text) {
   const sentences = text.split(/(?<=[.!?])\s+/);
-  return sentences.filter(s => !isContactLine(s)).join(' ').trim();
+  const kept = sentences.filter(s => !isContactLine(s));
+  // Some source list items merge a question and its answer into one run-on
+  // string with no separator (e.g. "...too much? Yes, discuss with
+  // GrabFinance Collections Hotline: +603..."). If the only thing left after
+  // stripping is a bare question with nothing resolving it — the whole
+  // "answer" was pure escalation — that's as unusable as an empty answer,
+  // so drop it entirely rather than leave a dangling unanswered question.
+  if (kept.length < sentences.length && kept.length > 0 && /\?\s*$/.test(kept[kept.length - 1])) {
+    return '';
+  }
+  return kept.join(' ').trim();
 }
 
 // "Learn more here." / "click here" style cross-references pointed at a link
@@ -50,7 +64,13 @@ function stripContactSentences(text) {
 // for the agent to act on, per the skill's no-dangling-cross-reference rule.
 const DEAD_LINK_RE = /\b(learn more|find out more|click)\s*(about\s+\S+\s+)?here\b\.?/gi;
 function stripDeadLinkPhrases(text) {
-  return text.replace(DEAD_LINK_RE, '').replace(/\s{2,}/g, ' ').trim();
+  let t = text.replace(DEAD_LINK_RE, '');
+  // A dangling "...submit it here." at the very end of the text was a link
+  // to a form/page we've already stripped out — drop just that trailing
+  // word rather than leave an unresolvable reference (only at the end, so
+  // legitimate mid-sentence uses of "here" are left alone).
+  t = t.replace(/\s+here\.?\s*$/i, '.');
+  return t.replace(/\s{2,}/g, ' ').trim();
 }
 
 // Render one block (and its children) as plain prose lines. Returns an array
@@ -147,10 +167,6 @@ function collectItems(blocks, url, question, items) {
     else if (b.type !== 'faq') nonFaqBlocks.push(b);
   }
 
-  for (const fb of faqBlocks) {
-    collectItems(fb.blocks, url, fb.question, items);
-  }
-
   const ownItems = [];
   for (const seg of splitByHeading(nonFaqBlocks)) {
     const lines = mergeLabelLines(seg.blocks.flatMap(blockToLines));
@@ -160,10 +176,15 @@ function collectItems(blocks, url, question, items) {
   }
   // A single outline-only own-segment ("About X" -> just section labels)
   // adds nothing once the real content already exists as split-out items.
-  if (ownItems.length === 1 && isOutlineOnly(ownItems[0].a) && faqBlocks.length > 0) {
-    return;
+  const suppressOwn = ownItems.length === 1 && isOutlineOnly(ownItems[0].a) && faqBlocks.length > 0;
+  // This level's own intro content (e.g. "How to make payments with debit
+  // cards" leading into its accordions) reads first in the source, so push
+  // it before recursing into the nested faqs — otherwise a parent's intro
+  // ends up listed after all its own children, which reads backwards.
+  if (!suppressOwn) items.push(...ownItems);
+  for (const fb of faqBlocks) {
+    collectItems(fb.blocks, url, fb.question, items);
   }
-  items.push(...ownItems);
 }
 
 const KNOWN_CATEGORIES = ['GrabFood', 'GrabMart', 'Payment Services', 'GrabExpress', 'Dine Out', 'Hubbo', 'Reservations', 'Marketing', 'Financing', 'GXBank'];
