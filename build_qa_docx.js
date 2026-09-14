@@ -17,6 +17,10 @@ const PRIMARY = '00B14F'; // Grab brand green, confirmed with user on the earlie
 const BODY_COLOR = '1A1A1A';
 const CONTENT_WIDTH_DXA = 9360;
 const SOURCE_ROOT = 'https://help.grab.com/merchant/en-my/';
+// category -> subcategory -> hub page URL (built from the crawl manifest's
+// section pages), so each subcategory banner can cite exactly where it
+// came from, not just one generic source at the top of the file.
+const SUBCAT_URLS = JSON.parse(fs.readFileSync(path.join(OUT, 'subcat_urls.json'), 'utf8'));
 
 // The colored banner is built with a single-cell borderless table purely as
 // a layout/fill trick (per the skill's branded template) — this is not
@@ -64,7 +68,10 @@ function buildCategoryDoc(category, subcats) {
 
   let qNum = 0;
   for (const [subcategory, items] of Object.entries(subcats)) {
-    children.push(filledBanner(`${category} › ${subcategory}`, null));
+    const sourceUrl = (SUBCAT_URLS[category] && SUBCAT_URLS[category][subcategory])
+      || (items.length === 1 ? items[0].url : null);
+    const subText = sourceUrl ? `Source: ${sourceUrl}` : null;
+    children.push(filledBanner(`${category} › ${subcategory}`, subText));
     children.push(new Paragraph({ text: '', spacing: { after: 150 } }));
 
     for (const item of items) {
@@ -92,7 +99,7 @@ async function main() {
     const category = file.replace(/_/g, ' ').replace(/\.json$/, '');
     const subcats = JSON.parse(fs.readFileSync(path.join(QA_DIR, file), 'utf8'));
     const doc = buildCategoryDoc(category, subcats);
-    const outName = `Grab_Merchant_MY_HelpCentre_QA_${file.replace(/\.json$/, '')}.docx`;
+    const outName = `Grab(MY)_FAQ_${file.replace(/\.json$/, '')}.docx`;
     const buf = await Packer.toBuffer(doc);
     fs.writeFileSync(path.join(DOCS_DIR, outName), buf);
     console.log('wrote', outName);

@@ -97,7 +97,7 @@ function mergeLabelLines(lines) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const isShortLabel = line.endsWith(':') && line.length < 40 && !line.startsWith('-');
-    const nextIsAlsoLabel = i + 1 < lines.length && lines[i + 1].endsWith(':') && lines[i + 1].length < 40;
+    const nextIsAlsoLabel = i + 1 < lines.length && lines[i + 1].endsWith(':') && lines[i + 1].length < 60;
     if (isShortLabel && i + 1 < lines.length && !lines[i + 1].startsWith('-') && !nextIsAlsoLabel) {
       out.push(`${line} ${lines[i + 1]}`);
       i++;
