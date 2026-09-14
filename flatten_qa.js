@@ -62,6 +62,8 @@ const DROP_KEYWORDS = [
   'get back to you as soon as possible',
   'submit your request via the form below', 'raise your concerns using the form below',
   'materials through the form below',
+  'submit this form to grab', 'raise the issue with',
+  'the business team will get back to you',
   "we're here to help", 'feel free to reach out',
   'grab support team via', 'contact grab support', '24/7 support team',
   'chat with gx buddy', 'contact gx bank', "contact gx bank's",
@@ -196,9 +198,15 @@ function mergeLabelLines(lines) {
 // A pure table-of-contents ("Section 1: Introduction:", "Section 2: ...:")
 // with no real sentence anywhere isn't a usable FAQ answer on its own —
 // it's just headers pointing at content that lives in the split-out child
-// items. Suppress it in that case rather than emit an empty-feeling Q&A.
+// items. Same idea for a single rhetorical teaser question with nothing
+// else ("Need to tweak online booking slots or quotas for specific
+// dates?") -- a page's own copywriting hook before it dives into the real
+// how-to, not an answer. Suppress either case rather than emit an
+// empty-feeling Q&A whose "answer" just echoes the question.
 function isOutlineOnly(lines) {
-  return lines.length > 0 && lines.every(l => l.endsWith(':') && !l.startsWith('-'));
+  if (lines.length === 0) return false;
+  if (lines.length === 1 && /\?$/.test(lines[0].trim())) return true;
+  return lines.every(l => l.endsWith(':') && !l.startsWith('-'));
 }
 
 // Splits a block list into segments at each heading boundary, so a long
