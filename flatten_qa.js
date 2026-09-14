@@ -66,7 +66,8 @@ const DROP_KEYWORDS = [
   'the business team will get back to you',
   "organisation's support team", 'reach out to hubbo pos personnel',
   'contact hubbo pos personnel',
-  'complete the form provided', 'raise a request through this article',
+  'complete the form provided', 'fill out the support form provided below',
+  'raise a request through this article',
   'submit a request via the help centre', 'visit our merchant blog',
   "we're here to help", 'feel free to reach out',
   'grab support team via', 'contact grab support', '24/7 support team',
@@ -158,6 +159,17 @@ function blockToLines(b) {
     kept.forEach(item => lines.push(`- ${item}`));
   } else if (b.type === 'table') {
     if (!b.rows.length) return lines;
+    if (b.hasHeader === false) {
+      // No <th>/<thead> in the source at all -- every row is its own data
+      // (e.g. a term/definition glossary styled as a table), so there's no
+      // header to prefix onto anything. Render each row on its own terms.
+      for (const row of b.rows) {
+        const parts = row.filter(p => p && p.trim());
+        const rowText = stripContactSentences(row.length === 2 && parts.length === 2 ? `${row[0]}: ${row[1]}` : parts.join(', '));
+        if (rowText && !isEmojiOnly(rowText)) lines.push(rowText);
+      }
+      return lines;
+    }
     const header = b.rows[0];
     const dataRows = b.rows.slice(1).length ? b.rows.slice(1) : [];
     if (dataRows.length === 0) {

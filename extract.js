@@ -98,7 +98,13 @@ function walk($, el, blocks) {
       });
       if (cells.length) rows.push(cells);
     });
-    if (rows.length) blocks.push({ type: 'table', rows });
+    // A table only has a real header row when the source actually marks one
+    // (a <th> cell, or a <thead> wrapper) — some source tables are pure
+    // term/definition pairs with every row in plain <td>s (e.g. an order
+    // status glossary), and treating that first data row as a header would
+    // wrongly prefix it onto every other row.
+    const hasHeader = $(node).find('th').length > 0 || $(node).find('thead').length > 0;
+    if (rows.length) blocks.push({ type: 'table', rows, hasHeader });
     return;
   }
   if (tag === 'details') {
