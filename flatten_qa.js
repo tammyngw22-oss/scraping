@@ -66,6 +66,8 @@ const DROP_KEYWORDS = [
   'contact us after hours by submitting a request below',
   'anything else we can assist you with by submitting a request below',
   'chat with us if you need help', 'you can chat with us for quick assistance',
+  'our support team will contact you as soon as possible to provide assistance',
+  'our team will reach out to you with potential marketing opportunities',
   'submit this form to grab', 'raise the issue with',
   'the business team will get back to you',
   "organisation's support team", 'reach out to hubbo pos personnel',
