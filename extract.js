@@ -18,8 +18,11 @@ function cleanText(s) {
 // cheerio does not. Source pages here sometimes nest a stray <style> tag
 // directly inside a <p> (malformed but real), so strip script/style before
 // reading text anywhere, not just in one fallback branch.
+// Also: a <br> carries no text of its own, so plain .text() glues its
+// neighbors together with zero separator (e.g. "<strong>Ads</strong><br>On
+// the..." becomes "AdsOn the...") — replace every <br> with a space first.
 function safeText($, node) {
-  return $(node).clone().find('script, style').remove().end().text();
+  return $(node).clone().find('br').replaceWith(' ').end().find('script, style').remove().end().text();
 }
 
 // A <ul>/<table> is "external nav chrome" (a link directory pointing off-site,
